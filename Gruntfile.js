@@ -4,12 +4,18 @@ module.exports = function (grunt) {
     grunt.loadNpmTasks("grunt-contrib-clean");
     grunt.loadNpmTasks("grunt-contrib-jshint");
     grunt.loadNpmTasks("grunt-contrib-cssmin");
-    grunt.loadNpmTasks("grunt-contrib-uglify");
     grunt.loadNpmTasks("grunt-contrib-concat");
     grunt.loadNpmTasks("grunt-mochaccino");
+    grunt.loadNpmTasks("grunt-closure-compiler");
+    grunt.loadNpmTasks("grunt-banner");
+    grunt.loadNpmTasks('grunt-karma');
+    grunt.loadNpmTasks('grunt-contrib-less');
+    grunt.loadNpmTasks('grunt-contrib-watch');
+
 
     grunt.initConfig({
-        clean: [ "build" ],
+        pkg: grunt.file.readJSON('package.json'),
+        clean: [ "build/cov" ],
 
         // see .jshintrc file for the options;
         // options are explained at http://www.jshint.com/docs/config/
@@ -18,206 +24,148 @@ module.exports = function (grunt) {
                 jshintrc: ".jshintrc"
             },
 
-            core: [ "appframework.js" ],
+            core: [ "src/*.js" ],
 
-            jq: [ "jq.appframework.js" ],
-
-            plugins: [ "plugins/**/*.js" ],
-
-            ui: [ "ui/appframework.ui.js", "ui/transitions/**/*.js" ]
+        },
+        karma: {
+            unit: {
+                  configFile: 'karma.conf.js'
+                    }
         },
 
-        // minification
-        //
-        // assumptions:
-        //
-        // * appframework.js and jq.appframework.js are minified
-        //   into separate files
-        // * plugins are minified separately (one file per plugin)
-        // * ui includes both the appframework.ui.js file, the
-        //   files in ui/transitions, and the needed plugins  (NOT appframework.js)
-        uglify: {
-            options: {
-                compress: true,
-                mangle: true,
-                preserveComments: false,
-                beautify: {
-                  "max_line_len": 600
+        concat: {
+            afui:{
+                files: {
+                    "build/appframework.ui.js": [
+                        "src/af.shim.js",
+                        "src/af.ui.js",
+                        "src/af.actionsheet.js",
+                        "src/af.grower.js",
+                        "src/af.touchEvents.js",
+                        "src/af.animateheader.js",
+                        "src/af.popup.js",
+                        "src/af.animation.js",
+                        "src/af.splashscreen.js",
+                        "src/af.drawer.js",
+                        "src/af.swipereveal.js",
+                        "src/af.desktopBrowsers.js",
+                        "src/af.toast.js",
+                        "src/af.lockscreen.js"
+                    ]
                 }
             },
-
-            core: {
+            less: {
                 files: {
-                    "build/appframework.min.js": [ "appframework.js" ]
+                    "build/af.ui.less":[
+                        "src/less/main.less",
+                        "src/less/anim2.less",
+                        "src/less/animation.less",
+                        "src/less/*.less"
+                    ]
                 }
             },
-
-            jq: {
+            lessBase: {
                 files: {
-                    "build/jq.appframework.min.js": [ "jq.appframework.js " ]
-                }
-            },
-
-            plugins: {
-                files: [
-                  {
-                      src: "plugins/**/*.js",
-                      expand: true,
-                      dest: "build",
-
-                      // change extension for each source file from .js
-                      // to .min.js
-                      rename: function (dest, src) {
-                          src = src.replace(".js", ".min.js");
-                          return path.join(dest, src);
-                      }
-                  }
-                ]
-            },
-
-            ui: {
-                files: {
-                    "build/ui/appframework.ui.min.js": [
-                    "ui/src/appframework.ui.js",
-                    "ui/transitions/**/*.js",
-                    "plugins/af.css3animate.js",
-                    "plugins/af.scroller.js",
-                    "plugins/af.popup.js",
-                    "plugins/af.actionsheet.js",
-                    "plugins/af.passwordBox.js",
-                    "plugins/af.selectBox.js",
-                    "plugins/af.touchEvents.js",
-                    "plugins/af.touchLayer.js",
-                    "plugins/af.8tiles.js"
-
+                    "./build/af.ui.base.less": [
+                    "src/less/main.less",
+                    "src/less/anim2.less",
+                    "src/less/animation.less",
+                    "src/less/appframework.less",
+                    "src/less/af.actionsheet.less",
+                    "src/less/af.popup.less",
+                    "src/less/af.splashscreen.less",
+                    "src/less/af.swipereveal.less",
+                    "src/less/af.toast.less",
+                    "src/less/badges.less",
+                    "src/less/buttons.less",
+                    "src/less/forms.less",
+                    "src/less/grid.less",
+                    "src/less/lists.less",
+                    "src/less/splitview.less",
+                    "src/less/af.lockscreen.less"
                     ]
                 }
             }
         },
-
-        mochaccino: {
-            unit: [ "test/**/*.test.js" ],
-
-            // unit tests with coverage report in build/
-            cov: {
-                files: [
-                    { src: "test/**/*.test.js" }
-                ],
-                reporter: 'html-cov',
-                reportDir: 'build'
+        "closure-compiler": {
+            "appframework-ui": {
+                closurePath: "../closure/",
+                js: ["build/appframework.ui.js"],
+                jsOutputFile: "build/appframework.ui.min.js",
+                options: {
+                },
+                maxBuffer: 500,
+                noreport:true
+            },
+        },
+        usebanner: {
+            taskName: {
+                options: {
+                    position: "top",
+                    banner: "/*! <%= pkg.name %> - v<%= pkg.version %> - "+
+                        "<%= grunt.template.today('yyyy-mm-dd') %> */\n",
+                    linebreak: true
+                },
+                files: {
+                    src: [ "build/*.js","build/*.js","build/css/*.css" ]
+                }
             }
         },
-        cssmin: {
-            all: {
+        less: {
+            development: {
+                options: {
+                    paths: ["./src/less"],
+                    yuicompress: false
+                },
                 files: {
-                'build/css/af.ui.min.css': [
-                    "css/src/main.css",
-                    "css/src/appframework.css",
-                    "css/src/lists.css",
-                    "css/src/forms.css",
-                    "css/src/buttons.css",
-                    "css/src/badges.css",
-                    "css/src/grid.css",
-                    "css/src/android.css",
-                    "css/src/win8.css",
-                    "css/src/bb.css",
-                    "css/src/ios7.css",
-                    "css/src/ios.css",
-                    "plugins/css/af.actionsheet.css",
-                    "plugins/css/af.popup.css",
-                    "plugins/css/af.scroller.css",
-                    "plugins/css/af.selectbox.css"
-                    ]
+                    "./build/af.ui.css": "./src/less/*.less"
                 }
             },
             base: {
+                options: {
+                    paths: ["./src/less"],
+                    yuicompress: false
+                },
                 files: {
-                'build/css/af.ui.base.min.css': [
-                    "css/src/main.css",
-                    "css/src/appframework.css",
-                    "css/src/lists.css",
-                    "css/src/forms.css",
-                    "css/src/buttons.css",
-                    "css/src/badges.css",
-                    "css/src/grid.css",
-                    "plugins/css/af.actionsheet.css",
-                    "plugins/css/af.popup.css",
-                    "plugins/css/af.scroller.css",
-                    "plugins/css/af.selectbox.css"
+                    "./build/af.ui.base.css": [
+                    "src/less/main.less",
+                    "src/less/anim2.less",
+                    "src/less/animation.less",
+                    "src/less/appframework.less",
+                    "src/less/af.actionsheet.less",
+                    "src/less/af.popup.less",
+                    "src/less/af.splashscreen.less",
+                    "src/less/af.swipereveal.less",
+                    "src/less/af.toast.less",
+                    "src/less/badges.less",
+                    "src/less/buttons.less",
+                    "src/less/forms.less",
+                    "src/less/grid.less",
+                    "src/less/lists.less",
+                    "src/less/splitview.less",
+                    "src/less/af.lockscreen.less"
                     ]
                 }
             }
         },
-        concat: {
-            cssall: {
-                files: {
-                'build/css/af.ui.css': [
-                    "css/src/main.css",
-                    "css/src/appframework.css",
-                    "css/src/lists.css",
-                    "css/src/forms.css",
-                    "css/src/buttons.css",
-                    "css/src/badges.css",
-                    "css/src/grid.css",
-                    "css/src/android.css",
-                    "css/src/win8.css",
-                    "css/src/bb.css",
-                    "css/src/ios7.css",
-                    "css/src/ios.css",
-                    "plugins/css/af.actionsheet.css",
-                    "plugins/css/af.popup.css",
-                    "plugins/css/af.scroller.css",
-                    "plugins/css/af.selectbox.css"
-                    ]
-                }
-            },
-            cssbase: {
-                files: {
-                'build/css/af.ui.base.css': [
-                    "css/src/main.css",
-                    "css/src/appframework.css",
-                    "css/src/lists.css",
-                    "css/src/forms.css",
-                    "css/src/buttons.css",
-                    "css/src/badges.css",
-                    "css/src/grid.css",
-                    "plugins/css/af.actionsheet.css",
-                    "plugins/css/af.popup.css",
-                    "plugins/css/af.scroller.css",
-                    "plugins/css/af.selectbox.css"
-                    ]
-                }
-            },
-            afui:{
-                 files: {
-                    "build/ui/appframework.ui.js": [
-                    "ui/src/appframework.ui.js",
-                    "ui/transitions/**/*.js",
-                    "plugins/af.css3animate.js",
-                    "plugins/af.scroller.js",
-                    "plugins/af.popup.js",
-                    "plugins/af.actionsheet.js",
-                    "plugins/af.passwordBox.js",
-                    "plugins/af.selectBox.js",
-                    "plugins/af.touchEvents.js",
-                    "plugins/af.touchLayer.js",
-                    "plugins/af.8tiles.js"
-
-                    ]
-                }
-            }
+        watch: {
+            files: "./src/less/*.less",
+            tasks: ["less"]
         }
     });
 
-    // NB jshint is disabled for now as it fails with the current code
+
     grunt.registerTask("default", [
-        "clean",
+        "jshint",
         "test",
-        "uglify",
-        "cssmin",
-        "concat"
+        "clean",
+        "closure-compiler",
+        "usebanner",
+        "watch"
     ]);
 
-    grunt.registerTask("test", ["mochaccino:unit"]);
-    grunt.registerTask("cov", ["clean", "mochaccino:cov"]);
+    grunt.registerTask("rebuild" , ["less","concat","closure-compiler","usebanner"]);
+    grunt.registerTask("hint" , ["jshint"]);
+    grunt.registerTask("test" , ["karma"]);
+
 };
